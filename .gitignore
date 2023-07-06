@@ -1,0 +1,8 @@
+# Ignore auto-generated config files
+autogen_conf/
+
+# Ignore original screenshots
+/docs/screenshots_org
+
+# Ignore original config file
+/conf/auto_vdbench.conf.org

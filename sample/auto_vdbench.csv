@@ -1,0 +1,4 @@
+﻿dedup_ratio,compression_ratio,scenario,iops
+1,1,rand_bs4k_read100,10000
+1,5,rand_bs8k_read50,15000
+5,5,rand_bs16k_read0,1000
