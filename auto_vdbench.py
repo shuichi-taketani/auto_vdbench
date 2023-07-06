@@ -161,6 +161,7 @@ def start_test_in_incremental_mode() -> None:
             print("==================================================")
             sys.stdout.flush()
             # 重複排除と圧縮の設定をファイルへ書き込み
+            os.makedirs(Autogen_Config_Dir, exist_ok=True)
             make_file_from_template(Config_Dir + "dedup.template", Autogen_Config_Dir + "dedup",
                                     {"dedup": dedup, "comp": comp})
             # テストファイル作成
@@ -261,6 +262,7 @@ def start_test_in_auto_mode() -> None:
             print("==================================================")
             sys.stdout.flush()
             # 重複排除と圧縮の設定をファイルへ書き込み
+            os.makedirs(Autogen_Config_Dir, exist_ok=True)
             make_file_from_template(Config_Dir + "/dedup.template", Autogen_Config_Dir + "/dedup",
                                     {"dedup": dedup, "comp": comp})
             # テストファイル作成
@@ -1174,6 +1176,7 @@ def check_suspend() -> None:
 #   なし
 #---------------------------------------------------------------------
 def init_conffile() -> None:
+    os.makedirs(Autogen_Config_Dir, exist_ok=True)
     # Host Definitionsの作成
     shutil.copy(Config_Dir + 'hosts.template', Autogen_Config_Dir + 'hosts')
     with open(Autogen_Config_Dir + 'hosts', 'a') as f:
