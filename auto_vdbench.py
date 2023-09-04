@@ -1,13 +1,13 @@
 #!/usr/bin/python
 #---------------------------------------------------------------------
-#   auto_vdbench - Automatic VDBENCH Script - Version.1.0.0
+#   auto_vdbench - Automatic VDBENCH Script - Version.1.1.0
 #                         Copyright(c) 2023 Shuichi Taketani (NetApp)
 #
 #   This software is released under the MIT license, see docs/LICENSE. 
 #---------------------------------------------------------------------
 
 #---- モジュール定義 --------------------------------------------------
-# pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido
+# pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
 import os
 import sys
 import shutil
@@ -28,6 +28,7 @@ import pymsteams
 import requests
 import json
 from scipy import interpolate
+from slack_sdk import WebClient
 import warnings
 
 #---- 定数 -----------------------------------------------------------
@@ -140,9 +141,9 @@ def start_test_in_incremental_mode() -> None:
     """
     # テスト開始/再開メッセージを送信
     if Config['mode'] == "start":
-        send_to_teams(Config['teams_incoming_webhook'], "Test Start", "Tests are started.", [])
+        send_message('Test Start', 'Tests are started.', [], 'START')
     else:
-        send_to_teams(Config['teams_incoming_webhook'], "Test Resume", "Tests are resumed.", [])
+        send_message('Test Resume', 'Tests are resumed.', [], 'RESUME')
 
     # 重複排除率でループ
     save_pid()
@@ -188,6 +189,11 @@ def start_test_in_incremental_mode() -> None:
 
                 # 最大性能を調べる
                 result = run_test_with_retry(dedup, comp, scenario, 0, report_basedir)
+                if not result["iops"].values[0] > 0:
+                    err = "Can't get maximum performance."
+                    print("ERROR: " + err, file=sys.stderr, flush=True)
+                    send_message('Error', err, [], 'ERROR')
+                    sys.exit(1)
                 results = pd.concat([results, result], axis=0)
                 max_iops = (int(result["iops"][0] / Config['inc_iops_step']) + 2) * Config['inc_iops_step']
 
@@ -198,9 +204,8 @@ def start_test_in_incremental_mode() -> None:
 
                 # シナリオごとの結果をファイルへ保存
                 create_report_scenario(report_basedir + '/')
-                send_to_teams(Config['teams_incoming_webhook'], scenario + " result",
-                              "dedup: {}\r\ncomp: {}\r\n".format(dedup, comp),
-                              [report_basedir + "/results.png", report_basedir + "/results.html"])
+                send_message(scenario + " result", "dedup: {}\r\ncomp: {}\r\n".format(dedup, comp),
+                              [report_basedir + "/results.png", report_basedir + "/results.html"], 'REPORT')
 
                 # シナリオテスト終了時のスクリプトを実行
                 if Config['scenario_end_script']:
@@ -211,7 +216,8 @@ def start_test_in_incremental_mode() -> None:
                 save_checkpoint(dedup, comp, scenario, 0)
                 if check_suspend():
                     print("Tests is suspended by user.", flush=True)
-                    send_to_teams(Config['teams_incoming_webhook'], "Test Suspend", "Test was suspended by user. It can be resumed by resume command.", [])
+                    send_message('Test Suspend', 'Test was suspended by user. It can be resumed by resume command.',
+                                 [], 'SUSPEND')
                     return
 
     # テスト終了
@@ -219,7 +225,7 @@ def start_test_in_incremental_mode() -> None:
     create_report()
     cleanup_pid()
     print("All tests have been complated.", flush=True)
-    send_to_teams(Config['teams_incoming_webhook'], "Test Complete", "All tests have been completed.", [])
+    send_message('Test Complete', 'All tests have been completed.', [], 'FINISH')
 
 #---------------------------------------------------------------------
 #   自動モードのテストを開始
@@ -241,9 +247,9 @@ def start_test_in_auto_mode() -> None:
     """
     # テスト開始/再開メッセージを送信
     if Config['mode'] == "start":
-        send_to_teams(Config['teams_incoming_webhook'], "Test Start", "Tests are started.", [])
+        send_message('Test Start', 'Tests are started.', [], 'START')
     else:
-        send_to_teams(Config['teams_incoming_webhook'], "Test Resume", "Tests are resumed.", [])
+        send_message('Test Resume', 'Tests are resumed.', [], 'RESUME')
 
     # 重複排除率でループ
     save_pid()
@@ -292,7 +298,7 @@ def start_test_in_auto_mode() -> None:
                 if not result["iops"].values[0] > 0:
                     err = "Can't get maximum performance."
                     print("ERROR: " + err, file=sys.stderr, flush=True)
-                    send_to_teams(Config['teams_incoming_webhook'], "Error", err, [])
+                    send_message('Error', err, [], 'ERROR')
                     sys.exit(1)
                 results = pd.concat([results, result], axis=0)
                 max_iops = round_iops(result["iops"][0])
@@ -332,7 +338,7 @@ def start_test_in_auto_mode() -> None:
                 if test_cnt >= Config['auto_min_test_count']:
                     err = "The lower range of IOPS could not be fully explored; increase auto_min_test_count or increase auto_threshold_to_find_min_latency."
                     print("INFO: " + err, file=sys.stderr, flush=True)
-                    send_to_teams(Config['teams_incoming_webhook'], "Information", err, [])
+                    send_message('Information', err, [], 'ERROR')
 
                 # IOPSのレンジ内でLatencyの差分が大きい部分を計測
                 while test_cnt < Config['auto_max_test_count']:
@@ -358,7 +364,7 @@ def start_test_in_auto_mode() -> None:
                 if test_cnt >= Config['auto_max_test_count']:
                     err = "IOPS changes could not be fully explored; increase auto_max_test_count may provide more details on IOPS changes."
                     print("INFO: " + err, file=sys.stderr, flush=True)
-                    send_to_teams(Config['teams_incoming_webhook'], "Information", err, [])
+                    send_message('Information', err, [], 'INFO')
 
                 # 最低テスト回数に満たない場合は、IOPSの差が大きい部分を計測
                 while test_cnt < Config['auto_min_test_count']:
@@ -379,9 +385,8 @@ def start_test_in_auto_mode() -> None:
 
                 # シナリオごとの結果をファイルへ保存
                 create_report_scenario(report_basedir + '/')
-                send_to_teams(Config['teams_incoming_webhook'], scenario + " result",
-                              "dedup: {}\r\ncomp: {}\r\n".format(dedup, comp),
-                              [report_basedir + "/results.png", report_basedir + "/results.html"])
+                send_message(scenario + ' result', 'dedup: {}\r\ncomp: {}\r\n'.format(dedup, comp),
+                              [report_basedir + '/results.png', report_basedir + '/results.html'], 'REPORT')
 
                 # シナリオテスト終了時のスクリプトを実行
                 if Config['scenario_end_script']:
@@ -391,7 +396,8 @@ def start_test_in_auto_mode() -> None:
                 save_checkpoint(dedup, comp, scenario, 0)
                 if check_suspend():
                     print("Tests is suspended by user.", flush=True)
-                    send_to_teams(Config['teams_incoming_webhook'], "Test Suspend", "Test was suspended by user. It can be resumed by resume command.", [])
+                    send_message('Test Suspend', 'Test was suspended by user. It can be resumed by resume command.',
+                                 [], 'SUSPEND')
                     return
 
     # テスト終了
@@ -399,7 +405,7 @@ def start_test_in_auto_mode() -> None:
     create_report()
     cleanup_pid()
     print("All tests have been complated.", flush=True)
-    send_to_teams(Config['teams_incoming_webhook'], "Test Complete", "All tests have been completed.", [])
+    send_message('Test Complete', 'All tests have been completed.', [], 'FINISH')
 
 #---------------------------------------------------------------------
 #   ファイルモードのテストを開始
@@ -422,9 +428,9 @@ def start_test_in_file_mode() -> None:
 
     # テスト開始/再開メッセージを送信
     if Config['mode'] == "start":
-        send_to_teams(Config['teams_incoming_webhook'], "Test Start", "Tests are started.", [])
+        send_message('Test Start', 'Tests are started.', [], 'START')
     else:
-        send_to_teams(Config['teams_incoming_webhook'], "Test Resume", "Tests are resumed.", [])
+        send_message('Test Resume', 'Tests are resumed.', [], 'RESUME')
 
     # テストパターンでループ
     save_pid()
@@ -462,14 +468,14 @@ def start_test_in_file_mode() -> None:
         save_checkpoint(pattern['dedup_ratio'], pattern['compression_ratio'], pattern['scenario'], pattern['iops'])
         if check_suspend():
             print("Tests is suspended by user.", flush=True)
-            send_to_teams(Config['teams_incoming_webhook'], "Test Suspend", "Test was suspended by user. It can be resumed by resume command.", [])
+            send_message('Test Suspend', 'Test was suspended by user. It can be resumed by resume command.', [], 'SUSPEND')
             break
 
     # テスト終了
     cleanup_checkpoint()
     cleanup_pid()
     print("All tests have been complated.", flush=True)
-    send_to_teams(Config['teams_incoming_webhook'], "Test Complete", "All tests have been completed.", [])
+    send_message('Test Complete', 'All tests have been completed.', [], 'FINISH')
 
 #---------------------------------------------------------------------
 #   テストの中止(再開不可能)
@@ -988,7 +994,7 @@ def load_config(configfile: str) -> dict:
     with open(configfile, 'r', encoding='utf-8') as f:
         text = f.read()
     # コメントを削除
-    text = re.sub(r'#.*', '', text)
+    text = re.sub(r'(?<!")#.*$', '', text, flags=re.MULTILINE)
     # 設定をJsonとしてパース
     config = json.loads(text, strict=False)
     # AutoVDB_Homeをテンプレートとして置き換え
@@ -1228,8 +1234,7 @@ def init_conffile() -> None:
     # テストファイル作成用Storage Definitionsの作成
     make_file_from_template(Config_Dir + '/scenario-init.template',
                             Autogen_Config_Dir + '/scenario-init', 
-                            {'scenario': "seq-bs{}k-read0".format(max(Config['sequential_blocksize_list'])),
-                             'AutoVDB_Home': AutoVDB_Home})
+                            {'AutoVDB_Home': AutoVDB_Home})
 
 #---------------------------------------------------------------------
 #   シナリオ名リストの作成
@@ -1360,7 +1365,7 @@ def run_test_with_retry(dedup_ratio, compression_ratio, scenario, iops, report_b
     if retry == 0:
         err = "Max retry exceeded in " + scenario + "-iops" + striops
         print("WARNING: " + err, file=sys.stderr, flush=True)
-        send_to_teams(Config['teams_incoming_webhook'], "Warning", err, [])
+        send_message('WARNING', err, [], 'WARNING')
     return result
 
 #---------------------------------------------------------------------
@@ -2158,23 +2163,95 @@ def make_iops_latency_excel(title: str, results: pd.DataFrame, file: str) -> Non
     workbook.save(file)
 
 #---------------------------------------------------------------------
-#   Teamsでメッセージを送信
+#   メッセージを送信
 #
 # 概要:
-#   Teamsのチャネルにメッセージを送信します。添付ファイルの指定がある場合、
+#   設定されているSNSへメッセージを送信します。添付ファイルの指定がある場合、
 #   アップローダーの指定があれば、そのファイルをアップロードした上で
 #   リンクを添付して送信します。
 # 引数:
-#   url    Incoming Web HookのURL
 #   title  タイトル(省略可)
 #   text   メッセージ本分
 #   files  添付ファイルのリスト
+#   type   メッセージのタイプ
+#           Type of message ('START', 'FINISH', 'SUSPEND', 'REPORT',
+#           'INFO', 'WARNING', 'ERROR')    
 # 戻り値:
 #   なし
 #---------------------------------------------------------------------
-def send_to_teams(url: str, title: str, text: str, files: list) -> None:
+def send_message(title: str, text: str, files: list, type: str) -> None:
     """
-    Send a message via Teams
+    Send a message via SNS
+
+    Send a message to the condifured SNS. If an attachment is specified
+    and an uploader is specified, upload the file and then sends the
+    message with a link attached.
+
+    Parameters
+    ----------
+    title: str
+        Title (optional)
+    test: str
+        Message body
+    files: List
+        List of attached files
+    type: str
+        Type of message ('START', 'FINISH', 'SUSPEND', 'REPORT', 'INFO',
+        'WARNING', 'ERROR')    
+    """
+    # 添付ファイルをアップロード
+    teams_link = ''
+    line_link = ''
+    attach_img = None
+    if Config['uploader_url']:
+        for file in files:
+            # ファイルをアップロード
+            timestamp = time.strftime('%Y%m%d-%H%M%S', time.localtime())
+            (filename, ext) = os.path.splitext(os.path.basename(file))
+            filename = Config['upload_file_prefix'] + filename + "_" + timestamp + ext
+            upload_file(Config['uploader_url'], file, filename)
+            # ファイルへのリンクを生成
+            if ext == ".png":
+                link = Config['uploader_reference_url'] + filename
+                link_html = "<img src=\"{0}\">\r\n<a href=\"{0}\">View Image</a><br>\r\n".format(link)
+                teams_link += link_html
+                attach_img = open(file, mode='rb')
+            elif ext == ".xlsx":
+                link = Config['uploader_reference_url'] + filename
+                link_html = "<a href=\"{}\">Download Excel</a><br>\r\n".format(link)
+                teams_link += link_html
+            elif ext == ".html":
+                link = Config['uploader_reference_url'] + filename
+                link_html = "<a href=\"{}\">View Page</a><br>\r\n".format(link)
+                teams_link += link_html
+                line_link += link + '\n'
+
+    # Teamsでメッセージを送信
+    if type.upper() in [str.upper() for str in Config['teams_send_message_type']]:
+        send_by_teams(Config['teams_incoming_webhook'], title, text+'\r\n'+teams_link)
+    # Slackでメッセージを送信
+    if type.upper() in [str.upper() for str in Config['slack_send_message_type']]:
+        send_by_slack(Config['slack_bot_token'], Config['slack_channel'], title, text, files)
+    # LINEでメッセージを送信
+    if type.upper() in [str.upper() for str in Config['line_send_message_type']]:
+        send_by_line(Config['line_notify_access_token'], text+'\n'+line_link, attach_img)
+
+
+#---------------------------------------------------------------------
+#   Teamsでメッセージを送信
+#
+# 概要:
+#   Teamsのチャネルにメッセージを送信します。
+# 引数:
+#   url    Incoming Web HookのURL
+#   title  タイトル(省略可)
+#   text   メッセージ本文
+# 戻り値:
+#   なし
+#---------------------------------------------------------------------
+def send_by_teams(url: str, title: str, text: str) -> None:
+    """
+    Send a message by Teams
 
     Send a message to the Teams channel. If an attachment is specified and
     an uploader is specified, upload the file and then sends the message
@@ -2186,10 +2263,8 @@ def send_to_teams(url: str, title: str, text: str, files: list) -> None:
         Incoming Web Hook URL
     title: str
         Title (optional)
-    test: str
+    text: str
         Message body
-    files: List
-        List of attached files
     """
 
     # Incoming Web Hookの指定がなければすぐに戻す
@@ -2201,24 +2276,95 @@ def send_to_teams(url: str, title: str, text: str, files: list) -> None:
     if title != "":
         teams.title(title)
     # 本文と添付ファイル
-    link = ""
-    if Config['uploader_url']:
-        for file in files:
-            # ファイルをアップロード
-            timestamp = time.strftime('%Y%m%d-%H%M%S', time.localtime())
-            (filename, ext) = os.path.splitext(os.path.basename(file))
-            filename = Config['upload_file_prefix'] + filename + "_" + timestamp + ext
-            upload_file(Config['uploader_url'], file, filename)
-            # ファイルへのリンクを生成
-            if ext == ".png":
-                link = link + "<img src=\"{0}\">\r\n<a href=\"{0}\">View Image</a><br>\r\n".format(Config['uploader_reference_url'] + filename)
-            elif ext == ".xlsx":
-                link = link + "<a href=\"{}\">Download Excel</a><br>\r\n".format(Config['uploader_reference_url'] + filename)
-            elif ext == ".html":
-                link = link + "<a href=\"{}\">View Page</a><br>\r\n".format(Config['uploader_reference_url'] + filename)
-    teams.text(text + "\r\n" + link)
+    teams.text(text)
     # 送信
     teams.send()
+
+
+#---------------------------------------------------------------------
+#   Slackでメッセージを送信
+#
+# 概要:
+#   LINE Notifyでメッセージを送信します。
+# 引数:
+#   token    Slack Bot User OAuth Token
+#   channel  チャンネル
+#   title    タイトル
+#   text     メッセージ本文
+#   files    添付ファイルのリスト(optional)
+# 戻り値:
+#   なし
+#---------------------------------------------------------------------
+def send_by_slack(token: str, channel: str, title: str, text: str, files: list) -> None:
+    """
+    Send a message by Slack
+
+    Send a message to the specified channel by Slack
+
+    Parameters
+    ----------
+    token: str
+        LINE Notify Access Token
+    channel: str
+        Channel to send the message
+    title: str
+        Title
+    text: str
+        Message body
+    files: List
+        List of attached files (optional)
+    """
+    # Tokenの指定がなければすぐに戻す
+    if not token:
+        return
+    # ファイルをアップロード
+    client = WebClient(token)
+    link = ''
+    for file in files:
+        uploaded_file = client.files_upload_v2(file=file)
+        link += uploaded_file.get('file').get('permalink') + '\n'
+    # メッセージ送信
+    response = client.chat_postMessage(channel=channel, title=title, text=text+'\n'+link)
+
+#---------------------------------------------------------------------
+#   LINE Notifyでメッセージを送信
+#
+# 概要:
+#   LINE Notifyでメッセージを送信します。
+# 引数:
+#   token  LINE Notify Access Token
+#   text   メッセージ本文
+#   image  画像データ(バイナリ)
+# 戻り値:
+#   なし
+#---------------------------------------------------------------------
+def send_by_line(token: str, text: str, image: bin) -> None:
+    """
+    Send a message by LINE Notify
+
+    Send a message by LINE Notify.
+
+    Parameters
+    ----------
+    token: str
+        LINE Notify Access Token
+    text: str
+        Message body
+    image: bin
+        Image data (binary) (optional)
+    """
+
+    # Tokenの指定がなければすぐに戻す
+    if not token:
+        return
+    # メッセージ送信
+    header = {'Authorization': 'Bearer' + ' ' + token}
+    data = {'message': text}
+    img = {}
+    if image:
+        img = {'imageFile': image}
+    requests.post('https://notify-api.line.me/api/notify',
+                  headers=header, data=data, files=img)
 
 #---------------------------------------------------------------------
 #   ファイルをアップロード

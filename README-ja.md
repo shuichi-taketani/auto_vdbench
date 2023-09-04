@@ -19,7 +19,7 @@ VDBENCHを使用して、様々な条件でストレージのパフォーマン�
 - IOPSやレイテンシ、ストレージのCPU負荷などを自動的にサマリしCSVに出力するため、Excel上でピポッドテーブルによる多角的な分析が可能
 - テストの途中停止(サスペンド)と再開(レジューム)が可能
 - チェックポイントが自動作成され、エラーで終了した場合でもチェックポイントから再開可能
-- テストの結果をグラフつきでTeamsチャネルへ投稿。テストの経過をどこでも確認可能。<br>
+- テストの結果をグラフつきでTeamsチャネル、Slack、LINE Notifyへ投稿。テストの経過をどこでも確認可能。<br>
     (iPhoneアプリのTeamsではインラインでグラフは表示されず、リンクをタップする必要があります)
 - 条件の異なる結果を比較するグラフを簡単に作成可能
 
@@ -34,7 +34,7 @@ VDBENCHを使用して、様々な条件でストレージのパフォーマン�
 
 1. 必要なモジュールのインストール
     ```
-    pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido
+    pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
     ```
 
 1. VDBENCHのダウンロードとセットアップ
@@ -259,7 +259,13 @@ conf/auto_vdbench.confが設定ファイルになっており、このファイ�
 | polyfit_err_threshold | 多項式近似の誤差の閾値。2乗誤差がこの値より大きくなる場合、グラフに多項式近似曲線を表示しない。 | 100 |
 | cutoff_latency | カットオフ(特定のレイテンシを超えるIOPSの値)(ms)のリスト | [1, 2, 3, 4] |
 | graph_default_colors | グラフのデフォルトカラーリスト。色名はCSSで利用可能な色名または#RRGGBBなどPlotlyで使用できるものであれば使用可能。 | ["blue", "red", "green", "gold", "purple"] |
-| teams_incoming_webhook | TeamsのIncoming Webhookのアドレス。これを指定すると1つのテストシナリオが終了するごとにチャネルに通知が行われる。 | "https://xxxx.webhook.office.com/webhookb2/" |
+| teams_send_message_type | Teamsへ通知を行うメッセージのタイプ。ここで指定したタイプのメッセージのみ通知が行われる。 <br> "START":テスト開始 <br> "FINISH": テスト終了  <br>  "SUSPEND": テストサスペンド  <br>  "REPORT": テスト結果のレポート <br> "INFO": テスト精度低下などのお知らせ <br>  "WARNING": 特定シナリオのテスト失敗など継続可能だが対応が必要なもの  <br>  "ERROR": テスト継続が不可能で実行を中止したもの | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+| slack_send_message_type | Slackへ通知を行うメッセージのタイプ。ここで指定したタイプのメッセージのみ通知が行われる。 <br> "START":テスト開始 <br> "FINISH": テスト終了  <br>  "SUSPEND": テストサスペンド  <br>  "REPORT": テスト結果のレポート <br> "INFO": テスト精度低下などのお知らせ <br>  "WARNING": 特定シナリオのテスト失敗など継続可能だが対応が必要なもの  <br>  "ERROR": テスト継続が不可能で実行を中止したもの | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+| line_send_message_type | LINEへ通知を行うメッセージのタイプ。ここで指定したタイプのメッセージのみ通知が行われる。 <br> "START":テスト開始 <br> "FINISH": テスト終了  <br>  "SUSPEND": テストサスペンド  <br>  "REPORT": テスト結果のレポート <br> "INFO": テスト精度低下などのお知らせ <br>  "WARNING": 特定シナリオのテスト失敗など継続可能だが対応が必要なもの  <br>  "ERROR": テスト継続が不可能で実行を中止したもの | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+teams_incoming_webhook | TeamsのIncoming Webhookのアドレス。これを指定すると1つのテストシナリオが終了するごとにチャネルに通知が行われる。 | "https://xxxx.webhook.office.com/webhookb2/" |
+| slack_bot_token | SlackのBot User Token。これを指定すると1つのテストシナリオが終了するごとに指定されたチャネルに通知が行われる。 | "xoxb-1234567890" |
+| slack_channel | Slackに投稿を行うチャネル | "#general" |
+| line_notify_access_token | LINE Notifyのアクセストークン。これを指定すると1つのテストシナリオが終了するごとにLINEに通知が行われる。 | "abcdEFGHijklm" |
 | uploader_url | Teamsへ通知を行う際、Teamsに直接画像ファイルを送信することはできないため、外部のアップローダを使用する必要がある。そのアップローダのURL。postでファイルを受け付けられるアップローダが必要。 | "https://xxxx.xxxx/uploader.py" |
 | uploader_reference_url | アップロードしたファイルを参照するための参照URL | "https://xxxx.xxxx/" |
 | upload_file_prefix | ファイルをアップロードする際、ファイル名の先頭に付加する文字列 | "avdb_" |

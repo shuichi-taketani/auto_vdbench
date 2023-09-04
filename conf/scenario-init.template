@@ -31,4 +31,4 @@ include=${AutoVDB_Home}/autogen_conf/run_defaults
 *** None ***
 
 * Run Definitions **********************
-rd=rd1,iorate=max,wd=${scenario},threads=1,elapsed=5040h
+rd=rd1,iorate=max,wd=creating-testfiles,threads=1,elapsed=5040h

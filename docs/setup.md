@@ -151,6 +151,26 @@ Below is a step-by-step setup example for Rocky Linux 8.7 and NetApp ONTAP 9.13.
     sr-a800::> nfs create -vserver svm1_nfs -v3 enabled -v4.0 disabled
     ```
 
+1. Register the public key on ONTAP for SSH authentication
+
+   Retrieve the contents of ~/.ssh/id_rsa.pub
+   (If the above file does not exist, create it by referring to the procedure for ssh-keygen in "Server Setup" section.)
+
+    ```
+    # cat ~/.ssh/id_rsa.pub 
+    ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain
+    ```
+
+   Register the above on ONTAP.
+
+    ```
+    sr-a800::> security login create -user-or-group-name admin -application ssh -authentication-method publickey -role admin
+    Warning: To use public-key authentication, you must create a public key for user "admin".                                                                       
+    ```
+    ```
+    sr-a800::> security login publickey create -username admin -index 0 -publickey "ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain"    
+    ```
+
 1. Enable the diag user (used for perfstat) (optional)
 
     ```
@@ -195,7 +215,7 @@ Below is a step-by-step setup example for Rocky Linux 8.7 and NetApp ONTAP 9.13.
 
     ```
     # git clone https://github.com/shuichi-taketani/auto_vdbench.git
-    # pip3 install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido
+    # pip3 install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
     ```
 
    Set the PATH (optional)
@@ -260,25 +280,6 @@ Below is a step-by-step setup example for Rocky Linux 8.7 and NetApp ONTAP 9.13.
     # ssh-copy-id -i ~/.ssh/id_rsa.pub root@rocky2
     # ssh-copy-id -i ~/.ssh/id_rsa.pub root@rocky3
     …
-    ```
-
-1. Register the public key on ONTAP for SSH authentication
-
-   Retrieve the contents of ~/.ssh/id_rsa.pub
-
-    ```
-    # cat ~/.ssh/id_rsa.pub 
-    ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain
-    ```
-
-   Register the above on ONTAP.
-
-    ```
-    sr-a800::> security login create -user-or-group-name admin -application ssh -authentication-method publickey -role admin
-    Warning: To use public-key authentication, you must create a public key for user "admin".                                                                       
-    ```
-    ```
-    sr-a800::> security login publickey create -username admin -index 0 -publickey "ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain"    
     ```
 
 1. List the servers in conf/auto_vdbench.conf as follows:
@@ -503,3 +504,26 @@ Below is a step-by-step setup example for Rocky Linux 8.7 and NetApp ONTAP 9.13.
     # ファイルアップロードサービスの参照URL
     "uploader_reference_url": "https://xxxx.xxxx/uploader/",
     ```
+
+1. Configure Slack integration (optional)
+
+    If you want to send notifications to Slack channels, follow these steps to generate a token in Slack:
+
+    1. Click on the following URL and select your target workspace to create a new app manifest:<br>
+    [Create a New App in Slack](https://api.slack.com/apps?new_app=1&manifest_yaml=_metadata%3A%0A++major_version%3A+1%0A++minor_version%3A+1%0Adisplay_information%3A%0D%0A++name%3A+Auto_VDBENCH%0D%0Afeatures%3A%0D%0A++app_home%3A%0D%0A++++home_tab_enabled%3A+false%0D%0A++++messages_tab_enabled%3A+true%0D%0A++++messages_tab_read_only_enabled%3A+false%0D%0A++bot_user%3A%0D%0A++++display_name%3A+Auto+VDBENCH+Bot%0D%0A++++always_online%3A+true%0D%0Aoauth_config%3A%0D%0A++scopes%3A%0D%0A++++bot%3A%0D%0A++++++-+chat%3Awrite%0D%0A++++++-+chat%3Awrite.customize%0D%0A++++++-+chat%3Awrite.public%0D%0A++++++-+files%3Awrite%0D%0A++++++-+files%3Aread%0D%0Asettings%3A%0D%0A++org_deploy_enabled%3A+false%0D%0A++socket_mode_enabled%3A+false%0D%0A++token_rotation_enabled%3A+false%0D%0A)
+    1. Click the "Install to Workspace" button to install it in your Slack workspace.
+    1. A permissions confirmation screen will appear. Click "Allow".
+    1. From the left menu, select "OAuth & Permissions", and then copy the token that starts with "xoxb-" from "Bot User OAuth Token".
+    1. Specify the copied token in the configuration file as `slack_bot_token`
+    1. Specify the channel name where you want to post messages in the configuration file as `slack_channel`
+
+    <br>
+
+1. Configure LINE Notify integration (optional)
+
+    If you wish to send notifications to LINE, generate an access token for developers for LINE Notify from the my page:
+
+    English: [LINE Notify](https://notify-bot.line.me/en/)
+    Japanese: [LINE Notify](https://notify-bot.line.me/ja/)
+
+    With LINE Notify, graphs (images) of test results will be attached. If you've configured an uploader, a link to the HTML will be added to the message.

@@ -151,6 +151,26 @@ Rocky Linux 8.7とNetApp ONTAP 9.13.1でのステップバイステップのセ�
     sr-a800::> nfs create -vserver svm1_nfs -v3 enabled -v4.0 disabled
     ```
 
+1. ONTAPに公開鍵認証でログインできるよう公開鍵を登録
+
+    ~/.ssh/id_rsa.pubの内容を取得。
+    (上記のファイルが存在しない場合は、「サーバ側のセットアップ」にあるssh-keygenの手順を参照して作成すること)
+
+    ```
+    # cat ~/.ssh/id_rsa.pub 
+    ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain
+    ```
+
+    上記をONTAPへ登録。
+
+    ```
+    sr-a800::> security login create -user-or-group-name admin -application ssh -authentication-method publickey -role admin
+    Warning: To use public-key authentication, you must create a public key for user "admin".                                                                       
+    ```
+    ```
+    sr-a800::> security login publickey create -username admin -index 0 -publickey "ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain"    
+    ```
+
 1. diagユーザの有効化 (perfstatで使用) (オプション)
 
     ```
@@ -195,7 +215,7 @@ Rocky Linux 8.7とNetApp ONTAP 9.13.1でのステップバイステップのセ�
 
     ```
     # git clone https://github.com/shuichi-taketani/auto_vdbench.git
-    # pip3 install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido
+    # pip3 install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
     ```
 
     パスを通す(オプション)
@@ -260,25 +280,6 @@ Rocky Linux 8.7とNetApp ONTAP 9.13.1でのステップバイステップのセ�
     # ssh-copy-id -i ~/.ssh/id_rsa.pub root@rocky2
     # ssh-copy-id -i ~/.ssh/id_rsa.pub root@rocky3
     …
-    ```
-
-1. ONTAPにも公開鍵認証でログインできるよう公開鍵を登録
-
-    ~/.ssh/id_rsa.pubの内容を取得。
-
-    ```
-    # cat ~/.ssh/id_rsa.pub 
-    ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain
-    ```
-
-    上記をONTAPへ登録。
-
-    ```
-    sr-a800::> security login create -user-or-group-name admin -application ssh -authentication-method publickey -role admin
-    Warning: To use public-key authentication, you must create a public key for user "admin".                                                                       
-    ```
-    ```
-    sr-a800::> security login publickey create -username admin -index 0 -publickey "ssh-rsa AAAABBBBCCCCDDDDD....ZZZZ root@localhost.localdomain"    
     ```
 
 1. 以下のようにconf/auto_vdbench.confにサーバの一覧を記載
@@ -503,3 +504,26 @@ Rocky Linux 8.7とNetApp ONTAP 9.13.1でのステップバイステップのセ�
     # ファイルアップロードサービスの参照URL
     "uploader_reference_url": "https://xxxx.xxxx/uploader/",
     ```
+
+1. Slack関連の設定 (オプション)
+
+    Slackのチャネルへ通知を行う場合、以下の手順でSlackでトークンを発行する。
+
+    1. 以下のURLをクリックし、対象のワークスペースを選択して新しいアプリ(App Manifest)を作成する<br>
+    [Slackで新しいアプリを作成](https://api.slack.com/apps?new_app=1&manifest_yaml=_metadata%3A%0A++major_version%3A+1%0A++minor_version%3A+1%0Adisplay_information%3A%0D%0A++name%3A+Auto_VDBENCH%0D%0Afeatures%3A%0D%0A++app_home%3A%0D%0A++++home_tab_enabled%3A+false%0D%0A++++messages_tab_enabled%3A+true%0D%0A++++messages_tab_read_only_enabled%3A+false%0D%0A++bot_user%3A%0D%0A++++display_name%3A+Auto+VDBENCH+Bot%0D%0A++++always_online%3A+true%0D%0Aoauth_config%3A%0D%0A++scopes%3A%0D%0A++++bot%3A%0D%0A++++++-+chat%3Awrite%0D%0A++++++-+chat%3Awrite.customize%0D%0A++++++-+chat%3Awrite.public%0D%0A++++++-+files%3Awrite%0D%0A++++++-+files%3Aread%0D%0Asettings%3A%0D%0A++org_deploy_enabled%3A+false%0D%0A++socket_mode_enabled%3A+false%0D%0A++token_rotation_enabled%3A+false%0D%0A)
+    1. 「Install to Workspace」ボタンを押し、Slackワークスペースにインストールする
+    1. 権限を確認する画面が出るので、「許可する」をクリック
+    1. 左側のメニューから「OAuth & Permissions」を選び、「Bot User OAuth Token」に表示されているxoxb-で始まるトークンをコピーする
+    1. コピーしたトークンを設定ファイルの`slack_bot_token`に指定
+    1. 投稿するチャネル名を設定ファイルの`slack_channel`に指定
+
+    <br>
+
+1. LINE Notify関連の設定 (オプション)
+
+    LINEへ通知を行う場合、以下のマイページから開発者向けLINE Notifyのアクセストークンを発行しそれを指定する。
+
+    英語: [LINE Notify](https://notify-bot.line.me/en/)
+    日本語: [LINE Notify](https://notify-bot.line.me/ja/)
+
+    LINE Notifyの場合、テスト結果のグラフ(画像)が添付される。アップローダーを設定した場合、HTMLへのリンクがメッセージに付加される。

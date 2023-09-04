@@ -19,7 +19,7 @@ Auto VDBENCH is a tool that measures the performance of storage under various co
 - Automatically summarizes IOPS, latency, storage CPU load, etc., and outputs them to CSV for multidimensional analysis using pivot tables in Excel.
 - Supports suspending and resuming tests.
 - Automatically creates checkpoints, allowing you to resume from a checkpoint even in case of errors.
-- Posts test results with graphs to a Teams channel, allowing you to monitor the progress of the test from anywhere.<br>
+- Posts test results with graphs to a Teams channel, Slack and LINE Notify, allowing you to monitor the progress of the test from anywhere.<br>
     (The inline graph is not displayed in the Teams iPhone app and requires tapping the link.)
 - Easily creates graphs to compare results with different conditions.
 
@@ -34,7 +34,7 @@ Auto VDBENCH is a tool that measures the performance of storage under various co
 
 2. Install Required Modules
    ```
-   pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido
+   pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
    ```
 
 3. Download and Set Up VDBENCH
@@ -262,7 +262,13 @@ The `conf/auto_vdbench.conf` file serves as the configuration file, where you ca
 | polyfit_err_threshold | Threshold for the error of polynomial fitting. If the squared error exceeds this value, the polynomial fitting curve will not be displayed in the graph | 100 |
 | cutoff_latency | List of cutoff latencies (ms) which is IOPS values beyond these latencies. | [1, 2, 3, 4] |
 | graph_default_colors | Default color list for the graphs. Color names can be any valid CSS color name or any value accepted by Plotly, such as #RRGGBB | ["blue", "red", "green", "gold", "purple"] |
-| teams_incoming_webhook | Teams Incoming Webhook address. When specified, notifications will be sent to the channel after each test scenario is completed | "https://xxxx.webhook.office.com/webhookb2/" |
+| teams_send_message_type | The type of message for notifying Teams. Notifications will only be sent for messages of the specified type. <br> "START": Test start <br> "FINISH": Test finish <br> "SUSPEND": Test suspension <br> "REPORT": Report of test result <br> "INFO": Notifications about test accuracy degradation, etc. <br> "WARNING": Messages requiring attention, such as test failures in specific scenarios that can continue <br> "ERROR": Messages where test continuation is impossible and execution is aborted | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+| slack_send_message_type | The type of message for notifying Slack. Notifications will only be sent for messages of the specified type. <br> "START": Test start <br> "FINISH": Test finish <br> "SUSPEND": Test suspension <br> "REPORT": Report of test result <br> "INFO": Notifications about test accuracy degradation, etc. <br> "WARNING": Messages requiring attention, such as test failures in specific scenarios that can continue <br> "ERROR": Messages where test continuation is impossible and execution is aborted | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+| line_send_message_type | The type of message for notifying LINE. Notifications will only be sent for messages of the specified type. <br> "START": Test start <br> "FINISH": Test finish <br> "SUSPEND": Test suspension <br> "REPORT": Report of test result <br> "INFO": Notifications about test accuracy degradation, etc. <br> "WARNING": Messages requiring attention, such as test failures in specific scenarios that can continue <br> "ERROR": Messages where test continuation is impossible and execution is aborted | ["START", "FINISH", "SUSPEND", "REPORT", "INFO", "WARNING", "ERROR"] |
+| teams_incoming_webhook | Teams Incoming Webhook address. When specified, notifications will be sent to the channel after each test scenario is completed. | "https://xxxx.webhook.office.com/webhookb2/" |
+| slack_bot_token | Slack's Bot User Token. When specified, notifications will be sent to the channel after each test scenario is completed. | "xoxb-1234567890" |
+| slack_channel | The channel for posting messages on Slack. | "#general" |
+| line_notify_access_token | LINE Notify's access token. When specified, notifications will be sent to LINE after each test scenario is completed. | "abcdEFGHijklm" |
 | uploader_url | When sending notifications to Teams, it is not possible to directly send image files to Teams, so an external uploader needs to be used. This is the URL of the uploader. An uploader that can accept files via POST is required. | "https://xxxx.xxxx/uploader.py" |
 | uploader_reference_url | Reference URL for accessing the uploaded files | "https://xxxx.xxxx/" |
 | upload_file_prefix | Prefix added to the file name when uploading files | "avdb_" |
