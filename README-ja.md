@@ -34,7 +34,7 @@ VDBENCHを使用して、様々な条件でストレージのパフォーマン�
 
 1. 必要なモジュールのインストール
     ```
-    pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
+    pip install requests pandas matplotlib openpyxl pymsteams scipy plotly kaleido slack-sdk
     ```
 
 1. VDBENCHのダウンロードとセットアップ

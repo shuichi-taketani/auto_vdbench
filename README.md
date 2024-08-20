@@ -34,7 +34,7 @@ Auto VDBENCH is a tool that measures the performance of storage under various co
 
 2. Install Required Modules
    ```
-   pip install requests, pandas, openpyxl, pymsteams, scipy, plotly, kaleido, slack-sdk
+   pip install requests pandas matplotlib openpyxl pymsteams scipy plotly kaleido slack-sdk
    ```
 
 3. Download and Set Up VDBENCH
