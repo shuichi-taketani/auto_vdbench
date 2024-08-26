@@ -1,0 +1,9 @@
+requests
+pandas
+matplotlib
+openpyxl
+pymsteams
+scipy
+plotly
+kaleido
+slack-sdk
