@@ -340,6 +340,32 @@ Below is a step-by-step setup example for Rocky Linux 8.7 and NetApp ONTAP 9.13.
     # exec_all.sh systemctl disable firewalld
     ```
 
+1. Increase the maximum number of unauthenticated SSH sessions
+
+    vdbench uses a large number of SSH sessions, which can sometimes result in the following error:
+    ```
+    ssh_exchange_identification: Connection closed by remote host
+    ```
+    To prevent this error, make the following changes:
+    ```
+    vi /etc/ssh/sshd_config
+    MaxStartups 10:30:100
+    => MaxStartups 1000:10:1000
+    ```
+    Restart the sshd service to apply the changes.
+    ```
+    systemctl restart sshd
+    ```
+
+1. Increase the file descriptor limit
+
+    vdbench creates a large number of files simultaneously, so increase the file descriptor limit. (The settings will take effect after re-login)
+    ```
+    vi /etc/security/limits.conf
+    * soft nofile 65535
+    * hard nofile 65535
+    ```
+
 1. Mount the volumes
 
     Edit the /etc/fstab file on each server or create the following script that mounts the target storage volumes on each server.

@@ -340,6 +340,32 @@ Rocky Linux 8.7とNetApp ONTAP 9.13.1でのステップバイステップのセ�
     # exec_all.sh systemctl disable firewalld
     ```
 
+1. 未認証のsshのセッションの最大値を上げる
+
+    vdbenchでは多数のsshセッションを利用するため、以下のようなエラーがでることがある。
+    ```
+    ssh_exchange_identification: Connection closed by remote host
+    ```
+    このエラーを防ぐため、以下の設定を行う。
+    ```
+    vi /etc/ssh/sshd_config
+    MaxStartups 10:30:100
+    => MaxStartups 1000:10:1000
+    ```
+    変更を有効にするためsshdを再起動する。
+    ```
+    systemctl restart sshd
+    ```
+
+1. ファイルディスクリプタの上限を上げる
+
+    vdbenchでは多数のファイルを同時に作成するため、ファイルディスクリプタの最大値を上げる。(再ログインすると設定が反映される)
+    ```
+    vi /etc/security/limits.conf
+    * soft nofile 65535
+    * hard nofile 65535
+    ```
+
 1. マウント
 
     各サーバの/etc/fstabを編集あるいは以下のようなスクリプトを作成し、各サーバで対象ストレージのボリュームをマウントするよう設定する。
